@@ -1,0 +1,30 @@
+NUTTX_EXPORT=$(HOME)/repo/nuttx/lx_cpu/nuttx-export
+
+include $(NUTTX_EXPORT)/build/Make.defs
+
+CONFIG_OC_BUILD4RTEMS=n
+
+CROSS_COMPILE ?= $(CROSSDEV)
+TARGET_ARCH ?= $(ARCHCFLAGS) -mlong-calls -fno-common
+OPTIMIZE ?= $(ARCHOPTIMIZATION)
+CFLAGS += $(ARCHWARNINGS)
+CXXFLAGS += $(ARCHCXXFLAGS)
+CXXFLAGS += $(ARCHWARNINGSXX)
+INCLUDES += -isystem $(NUTTX_EXPORT)/include
+DEBUG ?= -g -ggdb
+
+LD_SCRIPT = $(NUTTX_EXPORT)/build/link-sdram.ld
+LD_SCRIPT-sdram = $(NUTTX_EXPORT)/build/link-sdram.ld
+LD_SCRIPT-flash-app = $(NUTTX_EXPORT)/build/link-flash-app.ld
+
+#link_VARIANTS = sdram flash-app
+
+LDFLAGS  += -L"$(NUTTX_EXPORT)/libs"
+LDFLAGS  += -Wl,--entry=__start -nostartfiles -nodefaultlibs
+
+LOADLIBES += 
+NUTTXLIBES += -Wl,--start-group -lapps -lnuttx -lm -lgcc -Wl,--end-group 
+
+NUTTXREGISTRY += -isystem $(NUTTX_EXPORT)/registry
+
+OUTPUT_FORMATS = bin hex

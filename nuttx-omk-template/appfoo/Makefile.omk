@@ -1,0 +1,14 @@
+bin_PROGRAMS = appfoo
+
+#lib_LIBRARIES = 
+
+#include_HEADERS = 
+
+appfoo_SOURCES += main.c function3.c
+
+appfoo_PROGBUILTIN = all
+
+#appfoo_EMBEDTARFILES = rootfs
+
+lib_LOADLIBES += bar
+
