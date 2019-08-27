@@ -1,4 +1,4 @@
-NUTTX_EXPORT=$(HOME)/repo/nuttx/lx_cpu/nuttx-export
+NUTTX_EXPORT?=$(MAKERULES_DIR)/../../nuttx-export
 
 include $(NUTTX_EXPORT)/build/Make.defs
 
