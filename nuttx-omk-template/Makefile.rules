@@ -5,7 +5,7 @@
 #  (C) Copyright 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2015 by Michal Sojka - Czech Technical University, FEE, DCE
 #
 #  Homepage: http://rtime.felk.cvut.cz/omk/
-#  Version:  0.2-179-g2aeb41b
+#  Version:  0.2-184-g18beb26
 #
 # The OMK build system is distributed under the GNU General Public
 # License.  See file COPYING for details.
@@ -504,7 +504,7 @@ $(1)_BUILTINTABLE = $(OBJS_DIR)/$(1)-builtintab.c
 $$($(1)_BUILTINTABLE): $$($(1)_PROGBUILTIN_PDAT) $$($(1)_PROGBUILTIN_BDAT)
 	$(Q) cat $$($(1)_PROGBUILTIN_PDAT) >$$@
 	$(Q) echo "#include <nuttx/config.h>" >>$$@
-	$(Q) echo "#include <nuttx/binfmt/builtin.h>" >>$$@
+	$(Q) echo "#include <nuttx/lib/builtin.h>" >>$$@
 	$(Q) echo "const struct builtin_s g_builtins[] = {" >>$$@
 	$(Q) cat $$($(1)_PROGBUILTIN_BDAT) >>$$@
 	$(Q) echo "{ NULL, 0, 0, 0 }};" >>$$@
