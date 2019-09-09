@@ -5,7 +5,7 @@
 #  (C) Copyright 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2015 by Michal Sojka - Czech Technical University, FEE, DCE
 #
 #  Homepage: http://rtime.felk.cvut.cz/omk/
-#  Version:  0.2-184-g18beb26
+#  Version:  0.2-189-g3448319
 #
 # The OMK build system is distributed under the GNU General Public
 # License.  See file COPYING for details.
@@ -300,7 +300,7 @@ $(pass):
 $(pass)-submakes:
 	@true			# Do not emit "nothing to be done" messages
 
-ifneq ($(4)$($(pass)_HOOKS),)
+ifneq ($(4)$($(pass)_HOOKS)$($(pass)_REQUIRED),)
 $(pass)-submakes: $(pass)-this-dir
 $(pass)-this-dir: $(foreach subdir,$(SUBDIRS),$(pass)-$(subdir)-subdir)
 	+@echo "make[omk]: $(pass) in $(RELATIVE_DIR)"
@@ -350,6 +350,8 @@ omkize:
 # sources using GNU toolchain.
 
 # Interface to other rules:
+# kernel_HEADERS   .. list of the kernel-space public header files
+# kernel_MODULES   .. list of the kernel side modules/applications
 
 # Input variables:
 # NUTTX_EXPORT - export directory of NuttX build
@@ -487,15 +489,16 @@ ifneq ($$($(1)_PROGBUILTIN),)
 ifneq ($$($(1)_PROGBUILTIN),all)
 $(1)_PROGBUILTIN_LIST = $$($(1)_PROGBUILTIN)
 else
-$(1)_PROGBUILTIN_TMP = $$(wildcard $$(USER_COMPILED_DIR_NAME)/registry/*.pbi)
-$(1)_PROGBUILTIN_LIST = $$($(1)_PROGBUILTIN_TMP:$$(USER_COMPILED_DIR_NAME)/registry/%.pbi=%)
+$(1)_PROGBUILTIN_TMP = $$(wildcard $$(USER_REGISTRY_DIR)/*.pbi)
+$(1)_PROGBUILTIN_LIST = $$($(1)_PROGBUILTIN_TMP:$$(USER_REGISTRY_DIR)/%.pbi=%)
 endif
 
-$(1)_PROGBUILTIN_PBI=$$($(1)_PROGBUILTIN_LIST:%=$$(USER_COMPILED_DIR_NAME)/registry/%.pbi)
-$(1)_PROGBUILTIN_ldat=$$($(1)_PROGBUILTIN_LIST:%=$$(USER_COMPILED_DIR_NAME)/registry/%.ldat)
-$(1)_PROGBUILTIN_PDAT=$$($(1)_PROGBUILTIN_LIST:%=$$(USER_COMPILED_DIR_NAME)/registry/%.pdat) \
+$(1)_PROGBUILTIN_OTHER=$$(filter-out $(1),$$($(1)_PROGBUILTIN_LIST))
+$(1)_PROGBUILTIN_PBI=$$($(1)_PROGBUILTIN_OTHER:%=$$(USER_REGISTRY_DIR)/%.pbi)
+$(1)_PROGBUILTIN_LDAT=$$($(1)_PROGBUILTIN_LIST:%=$$(USER_REGISTRY_DIR)/%.ldat)
+$(1)_PROGBUILTIN_PDAT=$$($(1)_PROGBUILTIN_LIST:%=$$(USER_REGISTRY_DIR)/%.pdat) \
 	$$(wildcard $(NUTTXREGISTRY)/*.pdat)
-$(1)_PROGBUILTIN_BDAT=$$($(1)_PROGBUILTIN_LIST:%=$$(USER_COMPILED_DIR_NAME)/registry/%.bdat) \
+$(1)_PROGBUILTIN_BDAT=$$($(1)_PROGBUILTIN_LIST:%=$$(USER_REGISTRY_DIR)/%.bdat) \
 	$$(wildcard $(NUTTXREGISTRY)/*.bdat)
 
 ifneq ($$($(1)_PROGBUILTIN_PDAT),)
@@ -511,9 +514,19 @@ $$($(1)_BUILTINTABLE): $$($(1)_PROGBUILTIN_PDAT) $$($(1)_PROGBUILTIN_BDAT)
 	$(Q) echo "const int g_builtin_count = sizeof(g_builtins) / sizeof(g_builtins[0]);" >>$$@
 
 GEN_SOURCES += $$($(1)_BUILTINTABLE)
-endif
-endif
 
+$(1)_BUILTINWRAPMAIN = $(OBJS_DIR)/$(1)-builtinwrapmain.c
+
+$$($(1)_BUILTINWRAPMAIN):
+	$(Q) echo "#include <nuttx/config.h>" >$$@
+	$(Q) echo "#include <nuttx/compiler.h>" >>$$@
+	$(Q) echo "int main(int argc, FAR char *argv[]);" >>$$@
+	$(Q) echo "int weak_function $(1)_main(int argc, FAR char *argv[]) {return main(argc, argv);}" >>$$@
+
+GEN_SOURCES += $$($(1)_BUILTINWRAPMAIN)
+
+endif
+endif
 
 ifneq ($$(LD_SCRIPT$(3:%=-%)),)
 $(1)$(3:%=-%)_LD_SCRIPT_FN = $$(LD_SCRIPT$(3:%=-%))
@@ -529,16 +542,15 @@ endif
 
 $(1)$(3:%=-%)_LDFLAGS = -Wl,-T,$$($(1)$(3:%=-%)_LD_SCRIPT)
 
-$(2)/$(1)$(3:%=-%): $$($(1)_OBJS) $$($(1)_BUILTINTABLE:%.c=%.o) $$($(1)_PROGBUILTIN_ldat) $$($(1)$(3:%=-%)_LD_SCRIPT)
+$(2)/$(1)$(3:%=-%): $$($(1)_OBJS) $$($(1)_BUILTINTABLE:%.c=%.o) $$($(1)_BUILTINWRAPMAIN:%.c=%.o) $$($(1)_PROGBUILTIN_LDAT) $$($(1)$(3:%=-%)_LD_SCRIPT)
 	@$(QUIET_CMD_ECHO) "  LINK    $$@"
-	$(Q) if [ -n "$$($(1)_PROGBUILTIN_LIST)" ] ; then echo ; fi
 	$(Q) $$(if $$(filter %.cc,$$($(1)_SOURCES)) , \
 	  $$(CXX) $$(CPPFLAGS) $$(OMK_CPPFLAGS) $$(OMK_CXXFLAGS) $$(CXXFLAGS) , \
 	  $$(CC)  $$(CPPFLAGS) $$(OMK_CPPFLAGS) $$(OMK_CFLAGS)   $$(CFLAGS) ) \
 	  $$(OMK_LDFLAGS) $$(LDFLAGS) $$($(1)$(3:%=-%)_LDFLAGS) -Wl,-Map,$(1)$(3:%=-%).map \
-	  $$($(1)_OBJS) $$($(1)_MOREOBJS) $$($(1)_BUILTINTABLE:%.c=%.o) \
+	  $$($(1)_OBJS) $$($(1)_MOREOBJS) $$($(1)_BUILTINTABLE:%.c=%.o) $$($(1)_BUILTINWRAPMAIN:%.c=%.o) \
 	  $$($(1)_PROGBUILTIN_PBI) $$(LOADLIBES) $$($(1)_LIBS:%=-l%) \
-	  $$(shell for i in $$($(1)_PROGBUILTIN_ldat); do cat $$$$i ; done) $$(NUTTXLIBES) \
+	  $$(shell for i in $$($(1)_PROGBUILTIN_LDAT); do cat $$$$i ; done) $$(NUTTXLIBES) \
 	  -o $$@
 	@echo "$(2)/$(1)$(3:%=-%): \\" >$(OBJS_DIR)/$(1)$(3:%=-%).exe.d
 	@$(SED4OMK) -n -e 's|^LOAD \(.*\)$$$$|  \1  \&|p' $(OBJS_DIR)/$(1)$(3:%=-%).map|tr '&' '\134'  >>$(OBJS_DIR)/$(1)$(3:%=-%).exe.d
@@ -641,6 +653,107 @@ library-pass_HOOKS += force_builtin_library_hook
 .PHONY: force_builtin_library_hook
 force_builtin_library_hook:
 
+endif
+KERN_MQ=\"                                                                       #OMK:nuttx-kernel.omk@Makefile.rules.nuttx
+KERN_AR = $(CROSS_COMPILE)ar
+
+c_o_kern_COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(OMK_CPPFLAGS) \
+	$(CPPFLAGS) $(OMK_CFLAGS) $(CFLAGS)
+
+cc_o_kern_COMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(OMK_CPPFLAGS) \
+	$(CPPFLAGS) $(CXXFLAGS) $(OMK_CFLAGS) $(CFLAGS)
+
+S_o_kern_COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(CPPFLAGS) $(OMK_CFLAGS) $(CFLAGS) $(ASFLAGS)
+
+kern_CC_DEPFLAGS = $(CC_DEPFLAGS)
+
+define COMPILE_c_o_kern_template
+
+$(2): $(1)
+	@$(QUIET_CMD_ECHO) "  CC [K]  $$@"
+	$(Q) if $$(c_o_kern_COMPILE) $$(kern_CC_DEPFLAGS) $(3) $(KERN_KBUILD_MODNAME) \
+	-D"KBUILD_BASENAME=$(KERN_MQ)$(notdir $(basename $(1)))$(KERN_MQ)" \
+	-o $$@ -c $$< ; \
+	then mv -f "$$@.d.tmp" "$$@.d" ; \
+	else rm -f "$$@.d.tmp" ; exit 1; \
+	fi
+endef
+
+
+
+define COMPILE_cc_o_kern_template
+
+$(2): $(1)
+	@$(QUIET_CMD_ECHO) "  CXX [K] $$@"
+	$(Q) if $$(cc_o_kern_COMPILE) $$(kern_CC_DEPFLAGS) $(3) $(KERN_KBUILD_MODNAME) \
+	-D"KBUILD_BASENAME=$(KERN_MQ)$(notdir $(basename $(1)))$(KERN_MQ)" \
+	-o $$@ -c $$< ; \
+	then mv -f "$$@.d.tmp" "$$@.d" ; \
+	else rm -f "$$@.d.tmp" ; exit 1; \
+	fi
+endef
+
+
+
+define COMPILE_S_o_kern_template
+
+$(2): $(1)
+	@$(QUIET_CMD_ECHO) "  AS [K]  $$@"
+	$(Q) if $$(S_o_kern_COMPILE) $$(kern_CC_DEPFLAGS) $(3) $(KERN_KBUILD_MODNAME) \
+	-D"KBUILD_BASENAME=$(KERN_MQ)$(notdir $(basename $(1)))$(KERN_MQ)" \
+	-o $$@ -c $$< ; \
+	then mv -f "$$@.d.tmp" "$$@.d" ; \
+	else rm -f "$$@.d.tmp" ; exit 1; \
+	fi
+endef
+
+
+
+define MODULE_kern_template
+$(foreach x, $(SOURCES2OBJS),
+$(1)_OBJS += $$(patsubst %$(notdir $(x)),%$(dir $(x)),$$(filter %$(notdir $(x)),\
+		$$($(1)_SOURCES) $$($(1)_GEN_SOURCES)))
+)
+$(1)_OBJS := $$(sort $$($(1)_OBJS:%/=%))
+
+KERN_OBJS  += $$($(1)_OBJS)
+KERN_SOURCES += $$($(1)_SOURCES)
+
+$(2)/$(1)$(KERN_LINK_SUFFIX): $$($(1)_OBJS)
+	@$(QUIET_CMD_ECHO) "  LD [K]  $$@"
+	$(Q) $(LINK) \
+	  -r -e module_initialize -T $(NUTTX_EXPORT)/build/gnu-elf.ld \
+	  -Map $(1)$(KERN_LINK_SUFFIX).map \
+	  $$($(1)_OBJS) $$($(1)_MOREOBJS) $$(LOADLIBES) $$($(1)_LIBS:%=-l%) \
+	  -o $$@
+	@echo "$(2)/$(1)$(KERN_LINK_SUFFIX): \\" >$(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).d
+	@echo "  $(NUTTX_EXPORT)/build/gnu-elf.ld \\" >>$(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).d
+	@$(SED4OMK) -n -e 's|^LOAD \(.*\)$$$$|  \1  \&|p' $(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).map|tr '&' '\134'  >>$(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).d
+	@echo >>$(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).d
+endef
+
+define LIBRARY_kern_template
+$(foreach x, $(SOURCES2OBJS),
+$(1)_OBJS += $$(patsubst %$(notdir $(x)),%$(dir $(x)),$$(filter %$(notdir $(x)),\
+		$$($(1)_SOURCES) $$($(1)_GEN_SOURCES)))
+)
+$(1)_OBJS := $$(sort $$($(1)_OBJS:%/=%))
+
+KERN_OBJS  += $$($(1)_OBJS)
+KERN_SOURCES += $$($(1)_SOURCES)
+
+$(KERN_LIB_DIR)/lib$(1).a: $$($(1)_OBJS)
+	@$(QUIET_CMD_ECHO) "  AR [K]  $$@"
+	$(Q) $(KERN_AR) rcs $$@ $$^
+endef
+
+ifneq ($(kernel_MODULES),)
+binary-pass_REQUIRED=y
+endif
+
+ifneq ($(kernel_LIBRARIES),)
+library-pass_REQUIRED=y
 endif
 ifeq ($(OMK_VERBOSE),1)                                                          #OMK:include.omk@Makefile.rules.nuttx
 CPHEADER_FLAGS += -v
@@ -955,17 +1068,44 @@ default: include-pass library-pass binary-pass utils-pass
 
 USER_REGISTRY_DIR = $(USER_COMPILED_DIR_NAME)/registry
 
+# Use same output directories for kernel modules as for user
+KERN_INCLUDE_DIR := $(USER_INCLUDE_DIR)
+KERN_LIB_DIR     := $(USER_LIB_DIR)
+KERN_MODULES_DIR := $(OUTPUT_DIR)/$(COMPILED_DIR_NAME)/modules
+KERN_BUILD_DIR   := $(OUTPUT_DIR)/$(BUILD_DIR_NAME)/kern
+KERN_LINK_SUFFIX := .elf
+
+$(eval $(call include-pass-template,$(KERN_INCLUDE_DIR),kernel))
+
+$(foreach module,$(kernel_MODULES),$(eval $(call MODULE_kern_template,$(module),$(KERN_MODULES_DIR))))
+
+$(foreach lib,$(kernel_LIBRARIES),$(eval $(call LIBRARY_kern_template,$(lib))))
+
+KERN_SOURCES := $(sort $(KERN_SOURCES))
+
+$(foreach src,$(filter %.c,$(KERN_SOURCES)),$(eval $(call COMPILE_c_o_kern_template,$(SOURCES_DIR)/$(src),$(src:%.c=%.o),)))
+$(foreach src,$(filter %.cc,$(KERN_SOURCES)),$(eval $(call COMPILE_cc_o_kern_template,$(SOURCES_DIR)/$(src),$(src:%.cc=%.o),)))
+$(foreach src,$(filter %.cxx,$(KERN_SOURCES)),$(eval $(call COMPILE_cc_o_kern_template,$(SOURCES_DIR)/$(src),$(src:%.cxx=%.o),)))
+$(foreach src,$(filter %.cpp,$(KERN_SOURCES)),$(eval $(call COMPILE_cc_o_kern_template,$(SOURCES_DIR)/$(src),$(src:%.cpp=%.o),)))
+$(foreach src,$(filter %.S,$(KERN_SOURCES)),$(eval $(call COMPILE_S_o_kern_template,$(SOURCES_DIR)/$(src),$(src:%.S=%.o),)))
+
 check-dir::
 	@$(call mkdir_def,$(USER_REGISTRY_DIR))
+	@$(call mkdir_def,$(KERN_MODULES_DIR))
+	@$(call mkdir_def,$(KERN_BUILD_DIR))
 
 $(foreach prog,$(bin_PROGRAMS),$(eval $(call ELF_template,$(prog),$(USER_BIN_DIR))))
 $(foreach prog,$(test_PROGRAMS),$(eval $(call ELF_template,$(prog),$(USER_TESTS_DIR))))
 
-binary-pass-local:  $(bin_PROGRAMS:%=$(USER_BIN_DIR)/%.elf) $(test_PROGRAMS:%=$(USER_TESTS_DIR)/%.elf)
+binary-pass-local:  $(bin_PROGRAMS:%=$(USER_BIN_DIR)/%.elf) $(test_PROGRAMS:%=$(USER_TESTS_DIR)/%$(KERN_LINK_SUFFIX))
+
+binary-pass-local:  $(kernel_MODULES:%=$(KERN_MODULES_DIR)/%$(KERN_LINK_SUFFIX))
 
 $(foreach prog,$(bin_PROGRAMS),$(eval $(call PROGBUILTIN_template,$(prog),$(USER_REGISTRY_DIR),$(USER_REGISTRY_DIR))))
 
 library-pass-local:  $(bin_PROGRAMS:%=$(USER_REGISTRY_DIR)/%.pbi)
+
+library-pass-local: $(kernel_LIBRARIES:%=$(KERN_LIB_DIR)/lib%.a)
 
 clean-local::
 	$(Q)rm -f $(bin_PROGRAMS:%=$(USER_REGISTRY_DIR)/%.*)
