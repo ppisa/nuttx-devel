@@ -13,11 +13,16 @@ CXXFLAGS += $(ARCHWARNINGSXX)
 INCLUDES += -isystem $(NUTTX_EXPORT)/include
 DEBUG ?= -g -ggdb
 
-LD_SCRIPT = $(NUTTX_EXPORT)/build/link-sdram.ld
-LD_SCRIPT-sdram = $(NUTTX_EXPORT)/build/link-sdram.ld
-LD_SCRIPT-flash-app = $(NUTTX_EXPORT)/build/link-flash-app.ld
+LD_SCRIPT = $(NUTTX_EXPORT)/build/$(LDSCRIPT)
+#LD_SCRIPT = $(NUTTX_EXPORT)/build/link-sdram.ld
+#LD_SCRIPT-sdram = $(NUTTX_EXPORT)/build/link-sdram.ld
+#LD_SCRIPT-flash-app = $(NUTTX_EXPORT)/build/link-flash-app.ld
 
 #link_VARIANTS = sdram flash-app
+
+ifeq ($(wildcard $(LD_SCRIPT)),)
+$(error LD_SCRIPT='$(LD_SCRIPT)' does not exists, correct config.target)
+endif
 
 LDFLAGS  += -L"$(NUTTX_EXPORT)/libs"
 LDFLAGS  += -Wl,--entry=__start -nostartfiles -nodefaultlibs
