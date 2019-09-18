@@ -1,0 +1,9 @@
+#SUBDIRS = 
+
+bin_PROGRAMS = start
+
+start_SOURCES = start.c
+start_SOURCES += nsh_romfsetc.c
+start_PROGBUILTIN = all
+start_KMODBUILTIN = all
+start_EMBEDROMFS = romfs

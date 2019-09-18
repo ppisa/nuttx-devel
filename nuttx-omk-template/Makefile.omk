@@ -1,1 +1,1 @@
-SUBDIRS = libbar appfoo
+SUBDIRS = libbar appfoo wrapup

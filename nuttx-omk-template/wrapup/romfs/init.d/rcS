@@ -1,0 +1,13 @@
+# Create a RAMDISK and mount it at /tmp
+
+echo Starting OMK template provided rcS
+
+# use if binfs is compiled in
+#mkdir /bin
+#mount -t binfs binfs /bin
+#set PATH /bin
+
+mount -t tmpfs tmpfs /tmp
+
+echo Starting user application
+start
