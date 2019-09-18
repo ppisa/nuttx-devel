@@ -5,7 +5,7 @@
 #  (C) Copyright 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2015 by Michal Sojka - Czech Technical University, FEE, DCE
 #
 #  Homepage: http://rtime.felk.cvut.cz/omk/
-#  Version:  0.2-190-gab37fa6
+#  Version:  0.2-194-gd8ecbeb
 #
 # The OMK build system is distributed under the GNU General Public
 # License.  See file COPYING for details.
@@ -406,6 +406,8 @@ CFLAGS	+= -Wall
 CFLAGS += -I$(SOURCES_DIR)
 CFLAGS += -I$(INCLUDE_DIR)
 
+ELF_FILE_LDSCRIPT?=$(wildcard $(NUTTX_EXPORT)/build/gnu-elf.ld)
+
 LOADLIBES += -L$(LIB_DIR)
 LOADLIBES += $(lib_LOADLIBES:%=-l%)
 
@@ -483,9 +485,11 @@ $(foreach x, $(SOURCES2OBJS),
 $(1)_OBJS += $$(patsubst %$(notdir $(x)),%$(dir $(x)),$$(filter %$(notdir $(x)),\
 		$$($(1)_SOURCES) $$($(1)_GEN_SOURCES)))
 )
+$(1)_OBJS += $$($(1)_EMBEDROMFS:%=%_img.o)
 $(1)_OBJS := $$(sort $$($(1)_OBJS:%/=%))
 
 SOURCES += $$($(1)_SOURCES)
+EMBEDROMFS += $$($(1)_EMBEDROMFS)
 
 ifneq ($$($(1)_PROGBUILTIN),)
 ifneq ($$($(1)_PROGBUILTIN),all)
@@ -508,6 +512,7 @@ $(1)_KMODBUILTIN_LIBS = $$($(1)_KMODBUILTIN:%=$$(KERN_MODULES_DIR)/lib%.ka)
 else
 $(1)_KMODBUILTIN_LIBS = $$(wildcard $$(KERN_MODULES_DIR)/lib*.ka)
 endif
+
 
 ifneq ($$($(1)_PROGBUILTIN_PDAT),)
 $(1)_BUILTINTABLE = $(OBJS_DIR)/$(1)-builtintab.c
@@ -571,12 +576,12 @@ define ELF_template
 $(2)/$(1).elf: $$($(1)_OBJS)
 	@$(QUIET_CMD_ECHO) "  ELF     $$@"
 	$(Q) $(LINK) \
-	  -r -e main -T $(NUTTX_EXPORT)/build/gnu-elf.ld \
+	  -r -e main -T $(ELF_FILE_LDSCRIPT) \
 	  -Map $(1).elf.map \
 	  $$($(1)_OBJS) $$($(1)_MOREOBJS) $$(LOADLIBES) $$($(1)_LIBS:%=-l%) \
 	  -o $$@
 	@echo "$(2)/$(1).elf: \\" >$(OBJS_DIR)/$(1).elf.d
-	@echo "  $(NUTTX_EXPORT)/build/gnu-elf.ld \\" >>$(OBJS_DIR)/$(1).elf.d
+	@echo "  $(ELF_FILE_LDSCRIPT) \\" >>$(OBJS_DIR)/$(1).elf.d
 	@$(SED4OMK) -n -e 's|^LOAD \(.*\)$$$$|  \1  \&|p' $(OBJS_DIR)/$(1).elf.map|tr '&' '\134'  >>$(OBJS_DIR)/$(1).elf.d
 	@echo >>$(OBJS_DIR)/$(1).elf.d
 endef
@@ -626,9 +631,11 @@ $(foreach x, $(SOURCES2OBJS),
 $(1)_OBJS += $$(patsubst %$(notdir $(x)),%$(dir $(x)),$$(filter %$(notdir $(x)),\
 		$$($(1)_SOURCES) $$($(1)_GEN_SOURCES)))
 )
+$(1)_OBJS += $$($(1)_EMBEDROMFS:%=%_img.o)
 $(1)_OBJS := $$(sort $$($(1)_OBJS:%/=%))
 
 SOURCES += $$($(1)_SOURCES)
+EMBEDROMFS += $$($(1)_EMBEDROMFS)
 
 $(LIB_DIR)/lib$(1).a: $$($(1)_OBJS)
 	@$(QUIET_CMD_ECHO) "  AR      $$@"
@@ -662,6 +669,27 @@ library-pass_HOOKS += force_builtin_library_hook
 force_builtin_library_hook:
 
 endif
+
+# Syntax: $(call ROMFS_template,<filename>,<filename2>,<directory>) FIXME: Is this correct?
+define ROMFS_template
+
+.PHONY: $(2)
+
+$(2):
+	$(Q) genromfs -f $(2).tmp -V $(1) -d $(3)
+	$(Q) if ( [ ! -e $(2) ] || ! cmp $(2).tmp $(2) ) ; then cp $(2).tmp $(2) ; fi
+
+$(2).o: $(2)
+	@$(QUIET_CMD_ECHO) "  ROMFS   $$@"
+	$(Q) $(LD) -r --accept-unknown-input-arch -b binary \
+		--defsym=$(2)_size=_binary_$(2)_size \
+		--defsym=$(2)_start=_binary_$(2)_start \
+		--defsym=$(2)_end=_binary_$(2)_end \
+		-o $$@.tmp $$^
+	$(Q) $(OBJCOPY) --rename-section .data=.rodata,alloc,load,readonly,data,contents \
+		$$@.tmp $$@
+
+endef
 KERN_MQ=\"                                                                       #OMK:nuttx-kernel.omk@Makefile.rules.nuttx
 KERN_AR = $(AR)
 KERN_OBJCOPY = $(OBJCOPY)
@@ -734,12 +762,12 @@ KERN_SOURCES += $$($(1)_SOURCES)
 $(2)/$(1)$(KERN_LINK_SUFFIX): $$($(1)_OBJS)
 	@$(QUIET_CMD_ECHO) "  LD [K]  $$@"
 	$(Q) $(LINK) \
-	  -r -e module_initialize -T $(NUTTX_EXPORT)/build/gnu-elf.ld \
+	  -r -e module_initialize -T $(ELF_FILE_LDSCRIPT) \
 	  -Map $(1)$(KERN_LINK_SUFFIX).map \
 	  $$($(1)_OBJS) $$($(1)_MOREOBJS) $$(LOADLIBES) $$($(1)_LIBS:%=-l%) \
 	  -o $$@
 	@echo "$(2)/$(1)$(KERN_LINK_SUFFIX): \\" >$(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).d
-	@echo "  $(NUTTX_EXPORT)/build/gnu-elf.ld \\" >>$(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).d
+	@echo "  $(ELF_FILE_LDSCRIPT) \\" >>$(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).d
 	@$(SED4OMK) -n -e 's|^LOAD \(.*\)$$$$|  \1  \&|p' $(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).map|tr '&' '\134'  >>$(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).d
 	@echo >>$(OBJS_DIR)/$(1)$(KERN_LINK_SUFFIX).d
 
@@ -1106,6 +1134,8 @@ $(foreach src,$(filter %.cxx,$(KERN_SOURCES)),$(eval $(call COMPILE_cc_o_kern_te
 $(foreach src,$(filter %.cpp,$(KERN_SOURCES)),$(eval $(call COMPILE_cc_o_kern_template,$(SOURCES_DIR)/$(src),$(src:%.cpp=%.ko),)))
 $(foreach src,$(filter %.S,$(KERN_SOURCES)),$(eval $(call COMPILE_S_o_kern_template,$(SOURCES_DIR)/$(src),$(src:%.S=%.ko),)))
 
+$(foreach romfs,$(EMBEDROMFS),$(eval $(call ROMFS_template,$(romfs),$(romfs)_img,$(SOURCES_DIR)/$(romfs))))
+
 check-dir::
 	@$(call mkdir_def,$(USER_REGISTRY_DIR))
 	@$(call mkdir_def,$(KERN_MODULES_DIR))
@@ -1114,9 +1144,12 @@ check-dir::
 $(foreach prog,$(bin_PROGRAMS),$(eval $(call ELF_template,$(prog),$(USER_BIN_DIR))))
 $(foreach prog,$(test_PROGRAMS),$(eval $(call ELF_template,$(prog),$(USER_TESTS_DIR))))
 
+ifneq ($(ELF_FILE_LDSCRIPT),)
 binary-pass-local:  $(bin_PROGRAMS:%=$(USER_BIN_DIR)/%.elf) $(test_PROGRAMS:%=$(USER_TESTS_DIR)/%.elf)
+binary-pass-local:  $(kernel_MODULES:%=$(KERN_MODULES_DIR)/%$(KERN_LINK_SUFFIX))
+endif
 
-binary-pass-local:  $(kernel_MODULES:%=$(KERN_MODULES_DIR)/%$(KERN_LINK_SUFFIX)) $(kernel_MODULES:%=$(KERN_MODULES_DIR)/lib%.ka)
+binary-pass-local:  $(kernel_MODULES:%=$(KERN_MODULES_DIR)/lib%.ka)
 
 $(foreach prog,$(bin_PROGRAMS),$(eval $(call PROGBUILTIN_template,$(prog),$(USER_REGISTRY_DIR),$(USER_REGISTRY_DIR))))
 
@@ -1126,6 +1159,7 @@ library-pass-local: $(kernel_LIBRARIES:%=$(KERN_LIB_DIR)/lib%.ka)
 
 clean-local::
 	$(Q)rm -f $(bin_PROGRAMS:%=$(USER_REGISTRY_DIR)/%.*)
+	$(Q)rm -f $(USER_OBJS_DIR)/*.pbo $(USER_OBJS_DIR)/*.ko $(USER_OBJS_DIR)/*.tmp
                                                                                  #OMK:cmetric.omk@Makefile.rules.nuttx
 NM ?= nm
 
