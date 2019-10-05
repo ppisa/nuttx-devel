@@ -1,6 +1,6 @@
 NUTTX_EXPORT?=$(MAKERULES_DIR)/../../nuttx-export
 
-include $(NUTTX_EXPORT)/build/Make.defs
+include $(NUTTX_EXPORT)/scripts/Make.defs
 
 CONFIG_OC_BUILD4RTEMS=n
 
@@ -13,10 +13,10 @@ CXXFLAGS += $(ARCHWARNINGSXX)
 INCLUDES += -isystem $(NUTTX_EXPORT)/include
 DEBUG ?= -g -ggdb
 
-LD_SCRIPT = $(NUTTX_EXPORT)/build/$(LDSCRIPT)
-#LD_SCRIPT = $(NUTTX_EXPORT)/build/link-sdram.ld
-#LD_SCRIPT-sdram = $(NUTTX_EXPORT)/build/link-sdram.ld
-#LD_SCRIPT-flash-app = $(NUTTX_EXPORT)/build/link-flash-app.ld
+LD_SCRIPT = $(NUTTX_EXPORT)/scripts/$(LDSCRIPT)
+#LD_SCRIPT = $(NUTTX_EXPORT)/scripts/link-sdram.ld
+#LD_SCRIPT-sdram = $(NUTTX_EXPORT)/scripts/link-sdram.ld
+#LD_SCRIPT-flash-app = $(NUTTX_EXPORT)/scripts/link-flash-app.ld
 
 #link_VARIANTS = sdram flash-app
 
