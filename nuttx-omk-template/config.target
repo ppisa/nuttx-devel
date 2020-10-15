@@ -13,12 +13,20 @@ CXXFLAGS += $(ARCHWARNINGSXX)
 INCLUDES += -isystem $(NUTTX_EXPORT)/include
 DEBUG ?= -g -ggdb
 
+ifeq ($(LDNAME),)
+LDNAME := $(LDSCRIPT)
+endif
+
 LD_SCRIPT = $(NUTTX_EXPORT)/scripts/$(LDNAME)
 #LD_SCRIPT = $(NUTTX_EXPORT)/scripts/link-sdram.ld
 #LD_SCRIPT-sdram = $(NUTTX_EXPORT)/scripts/link-sdram.ld
 #LD_SCRIPT-flash-app = $(NUTTX_EXPORT)/scripts/link-flash-app.ld
 
 #link_VARIANTS = sdram flash-app
+
+ifeq ($(LDNAME),)
+$(error no LDNAME or LDSCRIPT is defined)
+endif
 
 ifeq ($(wildcard $(LD_SCRIPT)),)
 $(error LD_SCRIPT='$(LD_SCRIPT)' does not exists, correct config.target)
@@ -28,6 +36,11 @@ LDFLAGS  += -L"$(NUTTX_EXPORT)/libs"
 LDFLAGS  += -Wl,--entry=__start -nostartfiles -nodefaultlibs
 
 LOADLIBES += 
+
+ifeq ($(LDLIBS),)
+LDLIBS := -lapps -lnuttx -lm -lgcc
+endif
+
 NUTTXLIBES += -Wl,--start-group $(LDLIBS) $(EXTRA_LIBS) -Wl,--end-group
 
 NUTTXREGISTRY += -isystem $(NUTTX_EXPORT)/registry
