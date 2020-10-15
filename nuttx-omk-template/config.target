@@ -5,7 +5,7 @@ include $(NUTTX_EXPORT)/scripts/Make.defs
 CONFIG_OC_BUILD4RTEMS=n
 
 CROSS_COMPILE ?= $(CROSSDEV)
-TARGET_ARCH ?= $(ARCHCFLAGS) -mlong-calls -fno-common
+TARGET_ARCH ?= $(ARCHCFLAGS) $(ARCHCPUFLAGS) -mlong-calls -fno-common
 OPTIMIZE ?= $(ARCHOPTIMIZATION)
 CFLAGS += $(ARCHWARNINGS)
 CXXFLAGS += $(ARCHCXXFLAGS)
@@ -13,7 +13,7 @@ CXXFLAGS += $(ARCHWARNINGSXX)
 INCLUDES += -isystem $(NUTTX_EXPORT)/include
 DEBUG ?= -g -ggdb
 
-LD_SCRIPT = $(NUTTX_EXPORT)/scripts/$(LDSCRIPT)
+LD_SCRIPT = $(NUTTX_EXPORT)/scripts/$(LDNAME)
 #LD_SCRIPT = $(NUTTX_EXPORT)/scripts/link-sdram.ld
 #LD_SCRIPT-sdram = $(NUTTX_EXPORT)/scripts/link-sdram.ld
 #LD_SCRIPT-flash-app = $(NUTTX_EXPORT)/scripts/link-flash-app.ld
@@ -28,7 +28,7 @@ LDFLAGS  += -L"$(NUTTX_EXPORT)/libs"
 LDFLAGS  += -Wl,--entry=__start -nostartfiles -nodefaultlibs
 
 LOADLIBES += 
-NUTTXLIBES += -Wl,--start-group -lapps -lnuttx -lm -lgcc -Wl,--end-group 
+NUTTXLIBES += -Wl,--start-group $(LDLIBS) $(EXTRA_LIBS) -Wl,--end-group
 
 NUTTXREGISTRY += -isystem $(NUTTX_EXPORT)/registry
 
