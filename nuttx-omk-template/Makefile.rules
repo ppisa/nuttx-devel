@@ -5,7 +5,7 @@
 #  (C) Copyright 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2015 by Michal Sojka - Czech Technical University, FEE, DCE
 #
 #  Homepage: http://rtime.felk.cvut.cz/omk/
-#  Version:  0.2-194-gd8ecbeb
+#  Version:  0.2-196-g89918a2
 #
 # The OMK build system is distributed under the GNU General Public
 # License.  See file COPYING for details.
@@ -366,6 +366,8 @@ omkize:
 # from base: SOURCES_DIR
 # from Makefile.omk: lib_LOADLIBES
 # xxx_PROGBUILTIN - list of builtin programs linked into final system image
+#                   when "all" is used then all programs provided by build are linked
+# xxx_PROGBUILTIN_EXCLUDE - list of builtin user or NuttX provided programs which are excluded
 # xxx_KMODBUILTIN - list of builtin programs linked into final system image
 
 # Output variables:
@@ -493,19 +495,22 @@ EMBEDROMFS += $$($(1)_EMBEDROMFS)
 
 ifneq ($$($(1)_PROGBUILTIN),)
 ifneq ($$($(1)_PROGBUILTIN),all)
-$(1)_PROGBUILTIN_LIST = $$($(1)_PROGBUILTIN)
+$(1)_PROGBUILTIN_TMP = $$($(1)_PROGBUILTIN)
 else
-$(1)_PROGBUILTIN_TMP = $$(wildcard $$(USER_REGISTRY_DIR)/*.pbi)
-$(1)_PROGBUILTIN_LIST = $$($(1)_PROGBUILTIN_TMP:$$(USER_REGISTRY_DIR)/%.pbi=%)
+$(1)_PROGBUILTIN_TMP1 = $$(wildcard $$(USER_REGISTRY_DIR)/*.pbi)
+$(1)_PROGBUILTIN_TMP = $$($(1)_PROGBUILTIN_TMP1:$$(USER_REGISTRY_DIR)/%.pbi=%)
 endif
+$(1)_PROGBUILTIN_LIST = $$(filter-out $$($(1)_PROGBUILTIN_EXCLUDE),$$($(1)_PROGBUILTIN_TMP))
 
 $(1)_PROGBUILTIN_OTHER=$$(filter-out $(1),$$($(1)_PROGBUILTIN_LIST))
 $(1)_PROGBUILTIN_PBI=$$($(1)_PROGBUILTIN_OTHER:%=$$(USER_REGISTRY_DIR)/%.pbi)
 $(1)_PROGBUILTIN_LDAT=$$($(1)_PROGBUILTIN_LIST:%=$$(USER_REGISTRY_DIR)/%.ldat)
 $(1)_PROGBUILTIN_PDAT=$$($(1)_PROGBUILTIN_LIST:%=$$(USER_REGISTRY_DIR)/%.pdat) \
-	$$(wildcard $(NUTTXREGISTRY)/*.pdat)
+	$$(filter-out $$($(1)_PROGBUILTIN_EXCLUDE:%=$(NUTTXREGISTRY)/%.pdat),\
+	$$(wildcard $(NUTTXREGISTRY)/*.pdat))
 $(1)_PROGBUILTIN_BDAT=$$($(1)_PROGBUILTIN_LIST:%=$$(USER_REGISTRY_DIR)/%.bdat) \
-	$$(wildcard $(NUTTXREGISTRY)/*.bdat)
+	$$(filter-out $$($(1)_PROGBUILTIN_EXCLUDE:%=$(NUTTXREGISTRY)/%.bdat),\
+	$$(wildcard $(NUTTXREGISTRY)/*.bdat))
 
 ifneq ($$($(1)_KMODBUILTIN),all)
 $(1)_KMODBUILTIN_LIBS = $$($(1)_KMODBUILTIN:%=$$(KERN_MODULES_DIR)/lib%.ka)
@@ -677,7 +682,7 @@ define ROMFS_template
 
 $(2):
 	$(Q) genromfs -f $(2).tmp -V $(1) -d $(3)
-	$(Q) if ( [ ! -e $(2) ] || ! cmp $(2).tmp $(2) ) ; then cp $(2).tmp $(2) ; fi
+	$(Q) if ( [ ! -e $(2) ] || ! cmp -s $(2).tmp $(2) ) ; then cp $(2).tmp $(2) ; fi
 
 $(2).o: $(2)
 	@$(QUIET_CMD_ECHO) "  ROMFS   $$@"
