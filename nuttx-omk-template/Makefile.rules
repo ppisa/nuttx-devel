@@ -408,7 +408,7 @@ CFLAGS	+= -Wall
 CFLAGS += -I$(SOURCES_DIR)
 CFLAGS += -I$(INCLUDE_DIR)
 
-ELF_FILE_LDSCRIPT?=$(wildcard $(NUTTX_EXPORT)/build/gnu-elf.ld)
+ELF_FILE_LDSCRIPT?=$(wildcard $(NUTTX_EXPORT)/scripts/gnu-elf.ld)
 
 LOADLIBES += -L$(LIB_DIR)
 LOADLIBES += $(lib_LOADLIBES:%=-l%)
