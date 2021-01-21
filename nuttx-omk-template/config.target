@@ -1,6 +1,8 @@
 NUTTX_EXPORT?=$(MAKERULES_DIR)/../../nuttx-export
 
+ifneq ($(filter-out distclean, $(MAKECMDGOALS)),)
 include $(NUTTX_EXPORT)/scripts/Make.defs
+endif
 
 CONFIG_OC_BUILD4RTEMS=n
 
@@ -24,12 +26,14 @@ LD_SCRIPT = $(NUTTX_EXPORT)/scripts/$(LDNAME)
 
 #link_VARIANTS = sdram flash-app
 
+ifneq ($(filter-out clean distclean, $(MAKECMDGOALS)),)
 ifeq ($(LDNAME),)
 $(error no LDNAME or LDSCRIPT is defined)
 endif
 
 ifeq ($(wildcard $(LD_SCRIPT)),)
 $(error LD_SCRIPT='$(LD_SCRIPT)' does not exists, correct config.target)
+endif
 endif
 
 LDFLAGS  += -L"$(NUTTX_EXPORT)/libs"
