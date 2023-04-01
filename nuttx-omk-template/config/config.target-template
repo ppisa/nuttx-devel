@@ -1,0 +1,9 @@
+NUTTX_EXPORT?=$(MAKERULES_DIR)/../../nuttx-export
+
+ifneq ($(filter-out distclean, $(MAKECMDGOALS)),)
+include $(NUTTX_EXPORT)/scripts/Make.defs
+endif
+
+LOADLIBES +=
+
+OUTPUT_FORMATS = bin hex
