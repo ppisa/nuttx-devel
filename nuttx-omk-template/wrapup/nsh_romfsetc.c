@@ -49,6 +49,13 @@
 
 extern uint8_t romfs_img_start[];
 extern uint8_t romfs_img_end[];
+extern uint8_t romfs_img_size[];
+
+#ifdef CONFIG_ETC_ROMFS
+
+const unsigned int romfs_img_len = (uintptr_t)romfs_img_size;
+
+#elif defined(CONFIG_NSH_ROMFSMOUNTPT) && defined(CONFIG_NSH_ROMFSDEVNO)
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -122,3 +129,10 @@ int nsh_romfsetc(void)
     }
   return OK;
 }
+
+#else
+#warning check that CONFIG_FS_ROMFS is enabled (set to "y")
+#warning CONFIG_ETC_ROMFS and CONFIG_ETC_ROMFSMOUNTPT are required for NuttX 12.4+
+#warning CONFIG_NSH_ROMFSETC and CONFIG_NSH_ROMFSMOUNTPT are required for older systems
+#error Can not setup initial /etc content, aborting compilation
+#endif
