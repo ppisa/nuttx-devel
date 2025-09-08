@@ -5,7 +5,7 @@
 #  (C) Copyright 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2015 by Michal Sojka - Czech Technical University, FEE, DCE
 #
 #  Homepage: http://rtime.felk.cvut.cz/omk/
-#  Version:  0.2-211-g40a9d52
+#  Version:  0.2-217-g2a676f5
 #
 # The OMK build system is distributed under the GNU General Public
 # License.  See file COPYING for details.
@@ -712,6 +712,17 @@ EMBEDROMFS += $$($(1)_EMBEDROMFS)
 $(LIB_DIR)/lib$(1)$$(LIB_EXT): $$($(1)_OBJS)
 	@$(QUIET_CMD_ECHO) "  AR      $$@"
 	$(Q) $(AR) $(ARFLAGS) $$@ $$^
+
+.PHONY: $(OBJS_DIR)/lib$(1)$(LIB_EXT).omkvar
+$(OBJS_DIR)/lib$(1).a.omkvar:
+	$(Q)echo '$(1)_objsar += $$$$(addprefix $(OBJS_DIR)/,$$($(1)_OBJS))' > $$@.tmp; \
+	    echo 'static_libs := $$$$(sort $(1) $$$$(static_libs))' >> $$@.tmp; \
+	    if cmp -s $$@.tmp $$@; then rm $$@.tmp; else mv $$@.tmp $$@; fi
+
+library-pass-local: $(OBJS_DIR)/lib$(1)$(LIB_EXT).omkvar
+ifeq ($(EXPORT_LIB_OBJS_EARLY),y)
+include-pass-local: $(OBJS_DIR)/lib$(1)$(LIB_EXT).omkvar
+endif
 endef
 
 
@@ -888,7 +899,7 @@ define cp_cmd
 if ! cmp -s $(1) $(2); then \
     echo "  CP      $(1:$(OUTPUT_DIR)/%=%) -> $(2:$(OUTPUT_DIR)/%=%)"; \
     install -d $(CPHEADER_FLAGS) `dirname $(2)` && \
-    install $(CPHEADER_FLAGS) $(1) $(2) || exit 1; \
+    install -m 0644 $(CPHEADER_FLAGS) $(1) $(2) || exit 1; \
 fi
 endef
 else
@@ -1139,7 +1150,15 @@ run: run-$(firstword $(link_VARIANTS))
 #=====================================================================
 # Generate pass rules from generic templates
 
-$(eval $(call omk_pass_template, include-pass, $(LOCAL_BUILD_DIR),,$(include_HEADERS)$(nobase_include_HEADERS)$(renamed_include_HEADERS)$(lib_LDSCRIPTS)$(config_include_HEADERS)$(LOCAL_CONFIG_H)))
+omk_include_pass_conditions:=$(include_HEADERS)$(nobase_include_HEADERS)\
+	$(renamed_include_HEADERS)$(lib_LDSCRIPTS)\
+	$(config_include_HEADERS)$(LOCAL_CONFIG_H)
+
+ifeq ($(EXPORT_LIB_OBJS_EARLY),y)
+$(eval $(call omk_pass_template, include-pass, $(LOCAL_BUILD_DIR), TARGET_RULE_TEMPLATES=y,$(omk_include_pass_conditions)$(lib_LIBRARIES)))
+else
+$(eval $(call omk_pass_template, include-pass, $(LOCAL_BUILD_DIR),,$(omk_include_pass_conditions)))
+endif
 $(eval $(call omk_pass_template, library-pass, $(LOCAL_BUILD_DIR),TARGET_RULE_TEMPLATES=y,$(lib_LIBRARIES)$(shared_LIBRARIES)$(lib_obj_SOURCES)$(cmetric_include_HEADERS)))
 $(eval $(call omk_pass_template, binary-pass,  $(LOCAL_BUILD_DIR),TARGET_RULE_TEMPLATES=y,$(bin_PROGRAMS) $(test_PROGRAMS)))
 $(eval $(call omk_pass_template, utils-pass,   $(LOCAL_BUILD_DIR),HOST_RULE_TEMPLATES=y,$(utils_PROGRAMS)))
