@@ -5,7 +5,7 @@
 #  (C) Copyright 2006, 2007, 2008, 2009, 2010, 2011, 2013, 2015 by Michal Sojka - Czech Technical University, FEE, DCE
 #
 #  Homepage: http://rtime.felk.cvut.cz/omk/
-#  Version:  0.2-217-g2a676f5
+#  Version:  0.2-218-g3bf762a
 #
 # The OMK build system is distributed under the GNU General Public
 # License.  See file COPYING for details.
@@ -322,8 +322,8 @@ default-config:
 	@echo "# Overrides should be stored in file $(notdir $(CONFIG_FILE))" >> "$(CONFIG_FILE)-default"
 	@echo >> "$(CONFIG_FILE)-default"
 	@$(MAKE) $(NO_PRINT_DIRECTORY) -C $(OUTPUT_DIR) \
-		RELATIVE_DIR="" SOURCES_DIR=$(OUTPUT_DIR) \
-		-f $(OUTPUT_DIR)/Makefile default-config-pass
+		RELATIVE_DIR="" SOURCES_DIR=$(MAKERULES_DIR) \
+		-f $(MAKERULES_DIR)/Makefile default-config-pass
 
 $(eval $(call omk_pass_template,default-config-pass,$$(LOCAL_BUILD_DIR),,always))
 
